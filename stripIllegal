@@ -1,0 +1,17 @@
+Function stripIllegal(str)
+'Strips illegal characters from str
+
+  Dim objRegExp, strOutput
+  Set objRegExp = New Regexp
+
+  objRegExp.IgnoreCase = True
+  objRegExp.Global = True
+  objRegExp.Pattern = "[^\040-\177]" 
+
+  'Replace all illegal character matches with the empty string
+  strOutput = objRegExp.Replace(str, "")
+  
+  stripIllegal = strOutput    'Return the value of strOutput
+
+  Set objRegExp = Nothing
+End Function
