@@ -1,0 +1,59 @@
+Function DZ_fieldtype(conn, table, column)
+    Dim SQLstr, rs, db
+	if instr(conn, "Jet") <> 0 then 
+		db = True
+	  	SQLstr = "SELECT " & column & " FROM " & table
+	  	Set rs = Server.CreateObject("ADODB.Recordset")
+      	rs.ActiveConnection = conn
+      	rs.Source = SQLstr
+     	 rs.CursorType = 2
+      	rs.CursorLocation = 2
+      	rs.LockType = 1
+      	rs.Open()
+		DZ_fieldtype = getType(rs(column).Type, db)
+	else
+		SQLstr = "SELECT fieldType FROM dbStruct WHERE tableName = '" & table & "' AND fieldName = '" & column & "' "
+	  	Set rs = Server.CreateObject("ADODB.Recordset")
+      	rs.ActiveConnection = conn
+      	rs.Source = SQLstr
+     	rs.CursorType = 2
+      	rs.CursorLocation = 2
+      	rs.LockType = 1
+      	rs.Open()
+		DZ_fieldtype = getSQL(rs("fieldType"))
+	end if
+End Function
+
+function getSQL(val)
+	Select Case val
+		case "adInteger", "adDouble"		' Number
+			getSQL = ""
+		case "adDBTimeStamp"				'Date
+			getSQL = "'"
+		case "adVarChar", "adLongVarChar"	' Text
+			getSQL = "'"
+		case else							' Unknown
+			getSQL = ""
+	end select
+end function
+
+Function getType(id, jet)
+	Select Case id
+		case 2,3,4,5,6,14,16,17,18,19,20,21,72,131,139  	' Number
+			getType = ""
+		case 7,133											'Date
+			if jet then
+				getType = "#"
+			else
+				getType = "'"
+			end if
+		case 134,135										'Time
+			getType = ""
+		case 11												'Boolean
+			getType = "@"
+		case 8,129,130,200,201,202,203						' Text
+			getType = "'"
+		case else											' Unknown
+			getType = ""
+	end select
+End Function
