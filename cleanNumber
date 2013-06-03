@@ -1,0 +1,10 @@
+Function cleanNumber(num)
+  Dim tmp
+	
+	tmp = 0
+	if num <> "" then
+		tmp = replace(num, ",", "")
+		tmp = replace(tmp, "$", "")
+	end if
+	cleanNumber = tmp
+End Function
