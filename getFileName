@@ -1,0 +1,12 @@
+Function getFileName(full)
+  Dim lsPath, arPath, tmpStr, tmpArray
+	lsPath = Request.ServerVariables("SCRIPT_NAME")
+	arPath = Split(lsPath, "/")' split path into array and grab last item for file name
+	tmpStr = arPath(UBound(arPath,1))
+	if full then
+		getFileName = tmpStr
+	else
+		tmpArray = split(tmpStr,".")
+		getFileName = tmpArray(0)
+	end if
+End Function
