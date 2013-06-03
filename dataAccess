@@ -1,0 +1,236 @@
+' Okay, what we need here is a series of functions and subs to handle database commands.
+' Add, Edit, Delete and Select.
+
+Function setRS(conn, sql)
+
+      on error resume next
+	  Set setRS = Server.CreateObject("ADODB.Recordset")
+      setRS.ActiveConnection = conn
+      setRS.Source = sql
+      setRS.CursorType = 3
+      setRS.CursorLocation = 2
+      setRS.LockType = 1
+      setRS.Open()
+	  if err.number <> 0 then
+		response.redirect "sysMsg.asp?errMsg=" & server.URLEncode(mySQL & "<br>" & err.Description) & "&module=_INCdbfunc_.asp&routine=openRSexecute"
+	  end if
+	  on error goto 0
+	  'response.Write(sql & "<BR>")
+
+End Function
+
+Function closeRS(rs)
+	rs.Close
+	set rs = nothing
+end Function
+
+' The Recordset
+
+Sub dbRS(conn, sql)
+
+      Dim rs
+	  
+	  Set rs = Server.CreateObject("ADODB.Recordset")
+      rs.ActiveConnection = conn
+      rs.Source = sql
+      rs.CursorType = 0
+      rs.CursorLocation = 2
+      rs.LockType = 1
+	  'response.Write(sql & "<BR>")
+      rs.Open()
+
+End Sub
+
+' Add to a database.
+
+Sub dbAdd(conn, table, dbfields(), values()) 'You need a connections string, table name, field list (as array) and field values (as array)
+      Dim i
+	  Dim SQLstr
+	  Dim Vstr, Fstr
+	  Dim special
+	  
+	  ' Create the SQL string
+	  SQLstr = "INSERT INTO " & table & " "
+	  Fstr = "("
+	  Vstr = "("
+      for i = 0 to Ubound(dbfields)
+		if instr(dbfields(i), "roj") > 0 then call changeDate(conn, values(i))
+	    special = DZ_fieldtype(conn, table, dbfields(i))
+		Fstr = Fstr & dbfields(i)
+		if special = "@" then ' Account for boolean
+			if values(i) = "" then
+				Vstr = Vstr & "False"
+			else
+				Vstr = Vstr & "True"
+			end if
+		else
+			if special = "" then values(i) = cleanNumber(values(i))
+			if special = "'" then values(i) = RTESafe(values(i))
+			Vstr = Vstr & special & values(i) & special
+		end if
+		if i < Ubound(dbfields) then
+			Fstr = Fstr & ", "
+			Vstr = Vstr & ", "
+		end if
+	  next
+	  Fstr = Fstr & ")"
+	  Vstr = Vstr & ")"
+	  SQLstr = SQLstr + Fstr + " VALUES " + Vstr
+	  'response.Write(SQLstr)
+	  call dbRS(conn, SQLstr)
+	  
+End Sub
+
+
+' Delete from a database
+
+Sub dbDelete(conn, table, fieldID, valueID) 'You need a connections string, table name, field name and field value (to distinguish which record to delete)
+	  Dim SQLstr, special
+
+      special = DZ_fieldtype(conn, table, fieldID)
+	  if special = "" then valueID = cleanNumber(valueID)
+      SQLstr = "DELETE * FROM " & table & " WHERE " & fieldID & " = " & special & valueID & special
+	  if instr(fieldID, "roj") <> 0 then call changeDate(conn, valueID)
+	  
+	  call dbRS(conn, SQLstr)
+	  'response.Write(SQLstr)
+
+End Sub
+
+
+' Update a database
+
+Sub dbUpdate(conn, table, dbfields(), values(), fieldID, valueID)
+      Dim i
+	  Dim SQLstr, special, special2
+	  
+	  ' Create the SQL string
+	  SQLstr = "UPDATE " & table & " SET "
+      for i = 0 to Ubound(dbfields)
+		if instr(dbfields(i), "roj") <> 0 then call changeDate(conn, values(i))
+		special = DZ_fieldtype(conn, table, dbfields(i))
+		SQLstr = SQLstr & dbfields(i) & " = " 
+		if special = "@" then ' Account for boolean
+			if values(i) = "" then
+				SQLstr = SQLstr & "False"
+			else
+				SQLstr = SQLstr & "True"
+			end if
+		else
+			if special = "" then values(i) = cleanNumber(values(i))
+			if special = "'" then values(i) = RTESafe(values(i))
+			SQLstr = SQLstr & special 
+			if (values(i) = "") and (special = "") then
+				SQLstr = SQLstr & "''"
+			else
+				SQLstr = SQLstr & values(i)  
+			end if
+			SQLstr = SQLstr & special
+		end if
+		if i < UBound(dbfields) then SQLstr = SQLstr + ", "
+	  next
+
+	  special2 = DZ_fieldtype(conn, table, fieldID)
+	  if special2 = "" then valueID = cleanNumber(valueID)
+  	  if special2 = "'" then valueID = RTESafe(valueID)
+	  if special2 = "@" then 
+	  	special2 = ""
+		if valueID = "" then 
+			valueID = "False" 
+		else
+			valueID = "True"
+		end if
+	  end if
+	  SQLstr = SQLstr & " WHERE " & fieldID & " = " & special2 & valueID & special2
+	  if instr(fieldID, "roj") <> 0 then call changeDate(conn, valueID)
+	  'response.Write(SQLstr)
+	  call dbRS(conn, SQLstr)
+	  
+End Sub
+
+
+' Select a recordset and return it to original call (fun huh?)
+
+Function dbSelect(conn, table, dbfields(), fieldID, valueID, spec) ' fieldID, valueID and spec are optional but you must pass NULL for each if you don't want to use them. Don't blame me, blame the idiot that made vbscript.
+      Dim i
+	  Dim SQLstr, special
+	  Dim Vstr, V2str
+  	  Dim MyArray(0,0)
+	  Dim rs
+	  
+	  MyArray(0,0) = ""
+
+	  Vstr = ""
+	  ' Create the SQL string
+	  SQLstr = "SELECT "
+	  if Not isNull(spec) then 
+	    SQLstr = SQLstr & spec & " " ' You can use options like DISTINCT and TOP here
+      end if		
+	  
+      for i = 0 to Ubound(dbfields)
+		Vstr = Vstr & Cstr(dbfields(i))
+		if i < Ubound(dbfields) then Vstr = Vstr & ", "
+	  next
+	  SQLstr = SQLstr & Vstr & " FROM " & table
+	  if (Not isNull(fieldID)) AND (Not isNull(valueID)) then
+	    special = DZ_fieldtype(conn, table, fieldID)
+	    if special = "" then valueID = cleanNumber(valueID)
+  	    if special = "'" then valueID = RTESafe(valueID)
+	  	if special = "@" then 
+	  		special = ""
+			if valueID = "" then 
+				valueID = "False" 
+			else
+				valueID = "True"
+			end if
+	    end if
+		SQLstr = SQLstr & " WHERE " & fieldID & " = " & special & valueID & special
+	  end if
+		
+      ' Special recordset used here because we need to do a GetRows to return an array
+      Set rs = Server.CreateObject("ADODB.Recordset")
+      rs.ActiveConnection = conn
+      rs.Source = SQLstr
+      rs.CursorType = 2
+      rs.CursorLocation = 2
+      rs.LockType = 1
+      rs.Open()
+      
+	  if rs.eof then
+	    dbSelect = MyArray
+	  else
+	    dbSelect = rs.GetRows()
+	  end if
+	  
+	  rs.close()
+	  
+End Function
+
+Function dbCompSelect(conn, sql) ' This is for complicated Selects, like searchs and such. Returns the results as an array
+	  Dim SQLstr
+	  Dim MyArray(0,0)
+	  Dim rs
+	  
+	  MyArray(0,0) = ""
+	  
+	  SQLstr = sql
+
+      ' Special recordset used here because we need to do a GetRows to return an array
+      Set rs = Server.CreateObject("ADODB.Recordset")
+      rs.ActiveConnection = conn
+      rs.Source = SQLstr
+      rs.CursorType = 2
+      rs.CursorLocation = 2
+      rs.LockType = 1
+      rs.Open()
+      
+	  if rs.eof then
+	    dbCompSelect = MyArray
+	  else
+	    dbCompSelect = rs.GetRows()
+	  end if
+	  
+	  rs.close()
+	  
+End Function
+
