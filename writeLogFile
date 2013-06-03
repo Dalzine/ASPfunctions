@@ -1,0 +1,14 @@
+sub cpm_logFile(cpm_wDir, cpm_fName, cpm_Data)
+  'cpm_wDir id the directory you wish to save too in file format (e.g. "../Downloads/")
+	'cpm_fName is the name of the text file you wish to create (e.g. "log.txt")
+	'cpm_Data is the data you want to save into the text file (e.g. storeID)
+	dim cpm_Dir
+	dim cpm_fso, cpm_a
+	cpm_Dir = Server.MapPath(cpm_wDir)
+	Set cpm_fso = CreateObject("Scripting.FileSystemObject")
+    Set cpm_a = cpm_fso.CreateTextFile(cpm_Dir & "\" & cpm_fName, True)
+    cpm_a.WriteLine(cpm_Data)
+	cpm_a.Close
+	set cpm_a = nothing
+	set cpm_fso = nothing
+end sub
