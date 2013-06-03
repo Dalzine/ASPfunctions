@@ -1,0 +1,15 @@
+function truncMessage(msg,words)
+  dim msgArray
+	dim i
+	dim tmpMsg
+	
+	msgArray = split(msg," ")
+	if UBound(msgArray) < words then
+		truncMessage = msg
+	else
+		for i = 0 to words
+			tmpMsg = tmpMsg & msgArray(i) & " "
+		next
+		truncMessage = tmpMsg & "..."
+	end if
+end function
